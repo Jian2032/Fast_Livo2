@@ -1,0 +1,8 @@
+<launch>
+    <!-- 发布局部坐标系到map的静态TF -->
+    <node pkg="tf2_ros" type="static_transform_publisher" 
+          name="local_origin_tf" args="0 0 0 0 0 0 map local_origin" />
+    
+    <node pkg="gps_trajectory" type="gps_trajectory_node" 
+          name="trajectory" output="screen"/>
+</launch>

@@ -1,0 +1,12 @@
+cam_model: Pinhole
+cam_width: 1280
+cam_height: 1024
+scale: 0.5
+cam_fx: 658.62796    # 相机内参 fx (camera_matrix[0][0])
+cam_fy: 657.8905     # 相机内参 fy (camera_matrix[1][1])
+cam_cx: 315.19865    # 相机光心 cx (camera_matrix[0][2])
+cam_cy: 248.34832    # 相机光心 cy (camera_matrix[1][2])
+cam_d0: -0.092001    # 畸变系数 k1 (distortion_coefficients[0])
+cam_d1: 0.163035     # 畸变系数 k2 (distortion_coefficients[1])
+cam_d2: -0.000991    # 畸变系数 p1 (distortion_coefficients[2])
+cam_d3: 0.000341     # 畸变系数 p2 (distortion_coefficients[3])
