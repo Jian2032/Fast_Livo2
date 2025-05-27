@@ -116,20 +116,21 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+include
   ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/serial_port.cpp
-# )
+add_library(head
+  include/serial_port/crc.h
+  src/crc.cpp
+)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message genera  std_msgs
   # message_generationtion or dynamic reconfigure
-# add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(head ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
@@ -209,3 +210,8 @@ include_directories(
 
 add_executable(gps_rec src/gps_rec.cpp)
 target_link_libraries(gps_rec ${catkin_LIBRARIES})
+target_link_libraries(head ${catkin_LIBRARIES})
+target_link_libraries(gps_rec
+  head
+  ${catkin_LIBRARIES}
+)

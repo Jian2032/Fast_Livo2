@@ -1,4 +1,10 @@
 uint16 start_marker
+uint8 hour
+uint8 min
+uint8 sec
+uint8 ms100
 uint32 latitude 
 uint32 longitude
-int32 altitude
+uint32 corrected_lat
+uint32 corrected_lon
+uint16 crc16

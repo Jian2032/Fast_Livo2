@@ -13,22 +13,24 @@ public:
         nh_.setParam("start_marker", start_marker_);
 
         // 订阅/发布
-        gps_sub_ = nh_.subscribe("/gps_rec/gps_data", 10, &LocalTrajectory::gpsCallback, this);
-        path_pub_ = nh_.advertise<nav_msgs::Path>("/local_path", 10);
+        gps_sub_ = nh_.subscribe("/gps_rec/gps_data", 20, &LocalTrajectory::gpsCallback, this);
+        original_path_pub_ = nh_.advertise<nav_msgs::Path>("/original_path", 10);
+        corrected_path_pub_ = nh_.advertise<nav_msgs::Path>("/corrected_path", 10);
     }
 
 private:
     // 添加所有需要的成员变量（修复2）
     ros::NodeHandle nh_;
     ros::Subscriber gps_sub_;
-    ros::Publisher path_pub_;
-    nav_msgs::Path path_;
+    ros::Publisher original_path_pub_;
+    ros::Publisher corrected_path_pub_;
+    nav_msgs::Path original_path_;
+    nav_msgs::Path corrected_path_; 
 
     uint16_t start_marker_; // 必须定义的成员变量
     bool has_initial_;
-    double initial_lat_; // 修复变量名一致性问题
+    double initial_lat_;
     double initial_lon_;
-    double initial_alt_;
 
     // 经纬度转局部坐标（平面近似法）
     void convertToLocal(double lat, double lon, double alt,
@@ -38,7 +40,6 @@ private:
         {
             initial_lat_ = lat; // 保持变量名一致
             initial_lon_ = lon;
-            initial_alt_ = alt;
             has_initial_ = true;
             x = y = z = 0.0;
             return;
@@ -69,11 +70,14 @@ private:
         // 解码原始数据
         double latitude = static_cast<int32_t>(msg->latitude) / 100000.0;
         double longitude = static_cast<int32_t>(msg->longitude) / 100000.0;
-        double altitude = static_cast<int32_t>(msg->altitude) / 10000.0;
+        double latitude_corrected = static_cast<int32_t>(msg->corrected_lat) / 100000.0;
+        double longitude_corrected = static_cast<int32_t>(msg->corrected_lon) / 100000.0;
 
         // 转换到局部坐标
         double x, y, z;
-        convertToLocal(latitude, longitude, altitude, x, y, z);
+        double x_corrected, y_corrected, z_corrected;
+        convertToLocal(latitude, longitude, 0, x, y, z);
+        convertToLocal(latitude_corrected, longitude_corrected, 0, x_corrected, y_corrected, z_corrected);
 
         // 构建位姿消息（ENU坐标系）
         geometry_msgs::PoseStamped pose;
@@ -86,16 +90,26 @@ private:
         pose.pose.orientation.w = 1.0; // 无旋转
 
         // 更新路径
-        path_.header = pose.header;
-        path_.poses.push_back(pose);
+        original_path_.header = pose.header;
+        original_path_.poses.push_back(pose);
 
-        // 保持路径长度
-        // if (path_.poses.size() > 1000)
-        // {
-        //     path_.poses.erase(path_.poses.begin());
-        // }
+        // 构建位姿消息（ENU坐标系）
+        geometry_msgs::PoseStamped pose_corrected;
+        pose_corrected.header.stamp = ros::Time::now();
+        pose_corrected.header.frame_id = "local_origin";
 
-        path_pub_.publish(path_);
+        pose_corrected.pose.position.x = x_corrected;
+        pose_corrected.pose.position.y = y_corrected;
+        pose_corrected.pose.position.z = z_corrected;
+        pose_corrected.pose.orientation.w = 1.0; // 无旋转
+
+        // 更新路径
+        corrected_path_.header = pose_corrected.header;
+        corrected_path_.poses.push_back(pose_corrected);
+        
+
+        original_path_pub_.publish(original_path_);
+        corrected_path_pub_.publish(corrected_path_);
     }
 };
 

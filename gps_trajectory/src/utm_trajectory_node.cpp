@@ -1,97 +1,98 @@
 #include <ros/ros.h>
-#include <serial_port/GPS.h>
 #include <nav_msgs/Path.h>
-#include <geodesy/utm.h>
-#include <geographic_msgs/GeoPoint.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <serial_port/GPS.h>
+#include <GeographicLib/UTMUPS.hpp>
 
-class UTMTrajectory {
+class GpsToPath {
 public:
-    UTMTrajectory() : nh_("~"), has_initial_(false) {
-        // 参数配置
-        start_marker_ = 0xAA55;
-        nh_.setParam("start_marker", start_marker_);
-        
-        // 订阅/发布
-        gps_sub_ = nh_.subscribe("/gps_rec/gps_data", 10, &UTMTrajectory::gpsCallback, this);
-        path_pub_ = nh_.advertise<nav_msgs::Path>("/utm_path", 10);
-    }
+  GpsToPath() {
+    // 初始化发布器
+    original_path_pub_ = nh_.advertise<nav_msgs::Path>("/original_path", 10);
+    corrected_path_pub_ = nh_.advertise<nav_msgs::Path>("/corrected_path", 10);
+
+    // 初始化路径消息
+    original_path_.header.frame_id = "map";
+    corrected_path_.header.frame_id = "map";
+
+    // 订阅GPS数据
+    sub_ = nh_.subscribe("/gps_rec/gps_data", 10, &GpsToPath::callback, this);
+  }
 
 private:
-    void gpsCallback(const serial_port::GPS::ConstPtr& msg) {
-        // 1. 校验起始标记
-        if (msg->start_marker != start_marker_) {
-            ROS_WARN("Invalid start marker: 0x%04X", msg->start_marker);
-            return;
-        }
+  void callback(const serial_port::GPS::ConstPtr& msg) {
+    // 转换原始经纬度
+    double lat = msg->latitude / 1e7;
+    double lon = msg->longitude / 1e7;
+    double corrected_lat = msg->corrected_lat / 1e7;
+    double corrected_lon = msg->corrected_lon / 1e7;
 
-        // 2. 解码原始数据（考虑符号）
-        const double lat = static_cast<int32_t>(msg->latitude)  / 100000.0;
-        const double lon = static_cast<int32_t>(msg->longitude) / 100000.0;
-        const double alt = static_cast<int32_t>(msg->altitude)  / 10000.0;
+    // UTM转换
+    try {
+      // 原始坐标转换
+      int zone;
+      bool northp;
+      double original_x, original_y;
+      GeographicLib::UTMUPS::Forward(lat, lon, zone, northp, original_x, original_y);
 
-        // 3. 转换为UTM坐标
-        geographic_msgs::GeoPoint geo_point;
-        geo_point.latitude = lat;
-        geo_point.longitude = lon;
-        geo_point.altitude = alt;
+      // 修正坐标转换
+      double corrected_x, corrected_y;
+      GeographicLib::UTMUPS::Forward(corrected_lat, corrected_lon, 
+                                   zone, northp, corrected_x, corrected_y);
 
-        geodesy::UTMPoint utm;
-        try {
-            geodesy::fromMsg(geo_point, utm);
-        } catch (const std::exception& e) {
-            ROS_ERROR("UTM conversion failed: %s", e.what());
-            return;
-        }
+      // 设置原点（第一个点）
+      if (!origin_initialized_) {
+        origin_easting_ = original_x;
+        origin_northing_ = original_y;
+        origin_initialized_ = true;
+        ROS_INFO("Origin set to: %.3f, %.3f", origin_easting_, origin_northing_);
+      }
 
-        // 4. 设置初始参考点
-        if (!has_initial_) {
-            initial_utm_ = utm;
-            has_initial_ = true;
-            ROS_INFO("Initial UTM Zone: %d%c", initial_utm_.zone, initial_utm_.band);
-        }
+      // 创建PoseStamped
+      geometry_msgs::PoseStamped original_pose, corrected_pose;
+      original_pose.header.stamp = ros::Time::now();
+      original_pose.header.frame_id = "map";
+      original_pose.pose.position.x = original_x - origin_easting_;
+      original_pose.pose.position.y = original_y - origin_northing_;
+      original_pose.pose.orientation.w = 1.0;
 
-        // 5. 检查UTM区域一致性
-        if (utm.zone != initial_utm_.zone || utm.band != initial_utm_.band) {
-            ROS_WARN_THROTTLE(60, "UTM zone changed: %d%c -> %d%c", 
-                            initial_utm_.zone, initial_utm_.band,
-                            utm.zone, utm.band);
-        }
+      corrected_pose.header.stamp = ros::Time::now();
+      corrected_pose.header.frame_id = "map";
+      corrected_pose.pose.position.x = corrected_x - origin_easting_;
+      corrected_pose.pose.position.y = corrected_y - origin_northing_;
+      corrected_pose.pose.orientation.w = 1.0;
 
-        // 6. 计算局部坐标（相对于初始点）
-        geometry_msgs::PoseStamped pose;
-        pose.header.stamp = ros::Time::now();
-        pose.header.frame_id = "utm_origin";
-        
-        pose.pose.position.x = utm.easting - initial_utm_.easting;  // 东方向
-        pose.pose.position.y = utm.northing - initial_utm_.northing; // 北方向 
-        pose.pose.position.z = utm.altitude - initial_utm_.altitude;
+      // 更新路径
+      original_path_.poses.push_back(original_pose);
+      corrected_path_.poses.push_back(corrected_pose);
+      original_path_.header.stamp = ros::Time::now();
+      corrected_path_.header.stamp = ros::Time::now();
 
-        // 7. 更新路径
-        path_.header = pose.header;
-        path_.poses.push_back(pose);
+      // 发布路径
+      original_path_pub_.publish(original_path_);
+      corrected_path_pub_.publish(corrected_path_);
 
-        // 保持最近1000个点
-        if (path_.poses.size() > 1000) {
-            path_.poses.erase(path_.poses.begin());
-        }
-
-        path_pub_.publish(path_);
+    } catch (const std::exception& e) {
+      ROS_ERROR("UTM转换失败: %s", e.what());
     }
+  }
 
-    ros::NodeHandle nh_;
-    ros::Subscriber gps_sub_;
-    ros::Publisher path_pub_;
-    nav_msgs::Path path_;
-    
-    // UTM相关参数
-    bool has_initial_;
-    geodesy::UTMPoint initial_utm_;
-    uint16_t start_marker_;
+  ros::NodeHandle nh_;
+  ros::Publisher original_path_pub_;
+  ros::Publisher corrected_path_pub_;
+  ros::Subscriber sub_;
+
+  nav_msgs::Path original_path_;
+  nav_msgs::Path corrected_path_;
+
+  double origin_easting_ = 0;
+  double origin_northing_ = 0;
+  bool origin_initialized_ = false;
 };
 
 int main(int argc, char** argv) {
-    ros::init(argc, argv, "utm_trajectory_node");
-    UTMTrajectory node;
-    ros::spin();
-    return 0;
+  ros::init(argc, argv, "gps_to_path");
+  GpsToPath node;
+  ros::spin();
+  return 0;
 }
