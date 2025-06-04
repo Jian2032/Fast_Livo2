@@ -1,73 +1,85 @@
-# FAST-LIO2 配置文件 - Livox Mid-360 专用版
 common:
-  img_topic: "/left_camera/image" # 相机图像话题
-  lid_topic: "/livox/lidar"             # Mid-360 点云话题（需与 ROS 驱动一致）
-  imu_topic: "/livox/imu"               # Mid-360 内置 IMU 话题
-  img_en: 1                             # 启用相机输入
-  lidar_en: 1                           # 启用激光雷达输入
-  ros_driver_bug_fix: true              # 启用 Mid-360 驱动兼容性修复
+  img_topic: "/left_camera/image"         # 相机图像话题名
+  lid_topic: "/livox/lidar"               # Livox Mid-360 雷达点云话题（与驱动中保持一致）
+  imu_topic: "/livox/imu"                 # Livox Mid-360 内置 IMU 数据话题
+  img_en: 1                               # 启用相机（1=启用，0=禁用）
+  lidar_en: 1                             # 启用激光雷达（必须开启）
+  ros_driver_bug_fix: false                # 开启 Livox ROS 驱动兼容性修复（建议开启，Mid-360 驱动存在时间戳问题）
 
 extrin_calib:
-  extrinsic_T: [0.04, 0.02, -0.03]      # 外参平移（单位：米，需实测标定）
-  extrinsic_R: [1,0,0, 0,1,0, 0,0,1]    # 外参旋转矩阵（单位：四元数，需实测标定）
-  Rcl: [-0.00166874, -0.999969, -0.00768157,        # 相机到 LiDAR 的旋转矩阵（需实测标定）
-        -0.00286365, 0.0076861, -0.999967,
-        0.999995, -0.00164645, -0.00287661]
-  Pcl: [-0.013776, 0.0347174, -0.0972432]           # 相机到 LiDAR 的平移向量（需实测标定）
+  extrinsic_T: [0.04165, 0.02326, -0.0284] # LiDAR 到 IMU 的平移外参（单位：米）——建议实测标定
+  extrinsic_R: [1, 0, 0, 0, 1, 0, 0, 0, 1] # LiDAR 到 IMU 的旋转矩阵（单位：行优先 3×3）
+
+  Rcl: [0.00610193, -0.999863, -0.0154172, # LiDAR 到相机的旋转矩阵（行优先）
+        -0.00615449, 0.0153796, -0.999863,
+        0.999962, 0.00619598, -0.0060598] 
+  Pcl: [0.0194384, 0.104689, -0.0251952]   # LiDAR 到相机的平移向量（单位：米）
 
 time_offset:
-  imu_time_offset: 0.0                  # IMU 时间偏移（秒，需同步验证）
-  img_time_offset: 0.1                  # 相机时间偏移（秒，需同步验证）
-  exposure_time_init: 0.0               # 曝光时间初始化（Mid-360 曝光固定，无需调整）
+  imu_time_offset: 0.0                    # IMU 时间偏移（建议 0）
+  img_time_offset: 0.1                    # 相机图像时间偏移（图像一般略滞后于雷达，单位：秒）
+  exposure_time_init: 0.0                 # 相机初始曝光时间（Mid-360 项目中通常不使用，可设为 0）
 
 preprocess:
-  point_filter_num: 1                   # 点云滤波层数（固态雷达建议 1-2 层）
-  filter_size_surf: 0.1                 # 表面滤波器尺寸（根据点云密度调整）
-  lidar_type: 1                         # 雷达类型：3（适配 Livox Mid/Mid-360）
-  scan_line: 4                          # 扫描线数（固态雷达设为 0）
-  blind: 0.3                            # 盲区距离（单位：米，Mid-360 最小探测距离约 10cm）
+  point_filter_num: 1                     # 点云滤波层数（Livox 固态雷达建议设为 1）
+  filter_size_surf: 0.1                   # 点云表面滤波体素大小（单位：米）
+  lidar_type: 1                           # 设置为 1（Mid/Mid-360）
+  scan_line: 4                            # 固态雷达无扫描线，
+  blind: 0.3                              # 盲区距离（单位：米），Mid-360 最小探测距离约为 0.1m，此处设为 0.3 更安全
 
 vio:
-  max_iterations: 10                    # VIO 最大迭代次数（增加以补偿稀疏点云）
-  outlier_threshold: 500                # 外点剔除阈值（降低以适应低密度点云）
-  img_point_cov: 50                     # 图像特征点协方差（减小以提高精度）
-  exposure_estimate_en: false           # 关闭曝光估计（Mid-360 曝光固定）
+  max_iterations: 5                       # VIO 图像优化最大迭代次数（减少以加快速度）
+  outlier_threshold: 1000                 # 特征点误差容差（像素平方和，越大允许误差越大）
+  img_point_cov: 100                      # 图像特征点测量协方差（越小代表图像信息越可靠）
+  patch_size: 8                           # 光流 patch 尺寸（图像金字塔搜索用）
+  patch_pyrimid_level: 4                  # 图像金字塔层数（用于光流追踪）
+  normal_en: true                         # 是否使用 surface normal 提取（提高匹配质量）
+  raycast_en: false                       # 是否使用体素 raycasting（建议关闭）
+  inverse_composition_en: false           # 是否使用逆组合（相机位姿更新策略）
+  exposure_estimate_en: true              # 是否启用曝光估计（Livox 一般不需要曝光估计）
+  inv_expo_cov: 0.1                       # 曝光估计协方差（关闭曝光估计时无效）
 
 imu:
-  imu_en: true                          # 启用 IMU 输入
-  imu_int_frame: 20                     # IMU 积分帧率（Mid-360 IMU 为 200Hz，设为 20ms）
-  acc_cov: 0.3                          # 加速度计噪声协方差（根据标定调整）
-  gyr_cov: 0.2                          # 陀螺仪噪声协方差（根据标定调整）
-  b_acc_cov: 0.00005                    # 加速度计偏置噪声（降低以抑制高频噪声）
-  b_gyr_cov: 0.00005                    # 陀螺仪偏置噪声（降低以抑制高频噪声）
+  imu_en: true                            # 启用 IMU 数据（Mid-360 内置 IMU 建议开启）
+  imu_int_frame: 20                       # IMU 积分帧间隔（单位 ms，200Hz 时每 20ms 积分一次）
+  acc_cov: 0.5                            # 加速度计测量噪声协方差
+  gyr_cov: 0.3                            # 陀螺仪测量噪声协方差
+  b_acc_cov: 0.0001                       # 加速度计偏置变化协方差（bias random walk）
+  b_gyr_cov: 0.0001                       # 陀螺仪偏置变化协方差（bias random walk）
 
 lio:
-  max_iterations: 10                    # LIO 最大迭代次数（增加以提升精度）
-  dept_err: 0.03                        # 深度误差容忍度（增大以适应稀疏点云）
-  beam_err: 0.08                        # 法线角度误差容忍度（增大以提升鲁棒性）
-  min_eigen_value: 0.001                # 最小特征值阈值（降低以保留更多特征）
-  voxel_size: 0.3                       # 体素滤波尺寸（增大以降低计算量）
-  layer_init_num: [3, 3, 3, 3, 3]       # 层级初始化点数（减少以加速初始化）
+  max_iterations: 5                       # LIO 后端最大优化迭代次数
+  dept_err: 0.02                          # 点到面匹配时允许的深度误差（单位：米）
+  beam_err: 0.05                          # 表面法向角度误差（单位：弧度）
+  min_eigen_value: 0.0025                 # ICP 最小特征值阈值（小值提高鲁棒性）
+  voxel_size: 0.5                         # 地图点云体素尺寸（单位：米，越大地图越稀疏）
+  max_layer: 2                            # 最大地图层级数（控制地图分辨率结构）
+  max_points_num: 50                      # 每帧地图最大特征点数
+  layer_init_num: [5, 5, 5, 5, 5]         # 各层地图初始点数量
 
 local_map:
-  map_sliding_en: false                 # 关闭地图滑动（Mid-360 需全局建图）
-  half_map_size: 100                    # 地图半尺寸（单位：米，根据场景调整）
+  map_sliding_en: false                   # 地图是否启用滑动窗口（Mid-360 建议禁用，全局建图）
+  half_map_size: 100                      # 地图半边大小（单位：米）
+  sliding_thresh: 8                       # 滑动触发阈值（仅当启用滑动时有效）
 
 uav:
-  imu_rate_odom: false                  # 关闭 IMU 里程计融合
-  gravity_align_en: true               # 关闭重力对齐（Mid-360 建议启用）
+  imu_rate_odom: false                    # 是否将 IMU 融合输出为 odom（飞行器用，不建议启用）
+  gravity_align_en: false                 # 是否进行重力方向对齐（建议开启以稳定导航姿态）
 
 publish:
-    path_en:  false
-    scan_publish_en:  true       # false: close all the point cloud output
-    dense_publish_en: true       # false: low down the points number in a global-frame point clouds scan.
-    scan_bodyframe_pub_en: true  # true: output the point cloud scans in IMU-body-frame
+  dense_map_en: false                     # 是否发布稠密地图（建议开启）
+  pub_effect_point_en: false              # 是否发布用于平面匹配的特征点（调试用）
+  pub_plane_en: false                     # 是否发布平面信息（调试用）
+  pub_scan_num: 1                         # 每帧发布点云帧数（1 表示每帧都发布）
+  blind_rgb_points: 0.0                   # RGB 点云盲区抑制（单位：米，默认设为 0）
+
 evo:
-  seq_name: "CBD_Building_01"           # 序列名称（自定义）
-  pose_output_en: false                 # 关闭实时位姿输出
+  seq_name: "CBD_Building_01"             # 序列名称（用于日志命名）
+  pose_output_en: false                   # 是否实时输出位姿到文件（一般关闭）
 
 pcd_save:
-  pcd_save_en: false                    # 关闭自动保存（测试时开启）
-  colmap_output_en: false               # 关闭 Colmap 输出
-  filter_size_pcd: 0.15                 # PCD 保存滤波尺寸
-  interval: -1                          # 保存间隔（-1 表示所有帧）
+  pcd_save_en: false                      # 是否启用自动保存 PCD 地图文件
+  colmap_output_en: false                 # 是否启用 COLMAP 格式输出（SfM 用，通常关闭）
+  filter_size_pcd: 0.15                   # PCD 输出滤波体素大小（单位：米）
+  interval: -1                            # 保存频率（-1 表示保存所有帧）
+  # -1 表示将所有帧存入一个 PCD 文件，帧数过多可能导致内存崩溃

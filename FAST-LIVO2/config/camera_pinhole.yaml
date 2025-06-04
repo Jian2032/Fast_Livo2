@@ -1,12 +1,16 @@
-cam_model: Pinhole
-cam_width: 1280
-cam_height: 1024
-scale: 0.5
-cam_fx: 658.62796    # 相机内参 fx (camera_matrix[0][0])
-cam_fy: 657.8905     # 相机内参 fy (camera_matrix[1][1])
-cam_cx: 315.19865    # 相机光心 cx (camera_matrix[0][2])
-cam_cy: 248.34832    # 相机光心 cy (camera_matrix[1][2])
-cam_d0: -0.092001    # 畸变系数 k1 (distortion_coefficients[0])
-cam_d1: 0.163035     # 畸变系数 k2 (distortion_coefficients[1])
-cam_d2: -0.000991    # 畸变系数 p1 (distortion_coefficients[2])
-cam_d3: 0.000341     # 畸变系数 p2 (distortion_coefficients[3])
+cam_model: Pinhole                # 相机模型为针孔模型
+cam_width: 1280                  # 相机原始图像宽度（像素）
+cam_height: 1024                 # 相机原始图像高度（像素）
+scale: 0.5                       # 图像缩放比例，标定时缩小为原来的一半
+
+# 相机内参（已根据 scale=0.5 还原为原图尺寸）
+cam_fx: 1370.08174               # 焦距 fx，对应 camera_matrix[0][0]，已 ×2
+cam_fy: 1379.40568               # 焦距 fy，对应 camera_matrix[1][1]，已 ×2
+cam_cx: 641.64098                # 主点 x 坐标，对应 camera_matrix[0][2]，已 ×2
+cam_cy: 476.82224                # 主点 y 坐标，对应 camera_matrix[1][2]，已 ×2
+
+# 畸变参数，通常不需缩放
+cam_d0: -0.043996                # 径向畸变 k1
+cam_d1: 0.128618                 # 径向畸变 k2
+cam_d2: -0.005772                # 切向畸变 p1
+cam_d3: 0.002450                 # 切向畸变 p2
