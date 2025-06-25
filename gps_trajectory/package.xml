@@ -65,6 +65,9 @@
   <exec_depend>tf2</exec_depend>
   <exec_depend>visualization_msgs</exec_depend>
 
+  <build_depend>libgeographic-dev</build_depend>
+  <exec_depend>libgeographic-dev</exec_depend>
+
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

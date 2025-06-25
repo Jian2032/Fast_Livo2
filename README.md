@@ -113,7 +113,7 @@ roslaunch fast_livo mapping_avia.launch
 rosbag play YOUR_DOWNLOADED.bag
 ```
 
-### 3.2 运行海相机和mid360
+### 3.2 运行海相机和mid360(海康相机配置在后面)
 
 ```bash
 roslaunch mvs_ros_driver mvs_camera_trigger.launch
@@ -476,3 +476,40 @@ roslaunch livox_camera_calib calib.launch
 ![结果2](image/联合标定结果.png)
 
 ## 8. 雷达和imu联合标定 lidar_imu_init
+
+## 9. 海康相机配置
+
+相机型号：MV-CU013-A0UC
+
+下载v2.1.2版本MVS客户端：https://www.hikrobotics.com/cn2/source/support/software/MVS_STD_GML_V2.1.2_221208.zip
+
+下载相机功能包：
+```bash
+git clone https://github.com/xuankuzcr/LIV_handhold.git
+```
+
+修改配置文件left_camera_trigger.yaml
+```bash
+%YAML:1.0
+
+#--------------------------------------------------------------------------------------------
+# Camera Parameters. Adjust them!
+#--------------------------------------------------------------------------------------------
+SerialNumber: "DA5464641" # Not needed for single camera. Specify serial number for multiple cameras. 
+TopicName: "left_camera/image"
+
+TriggerEnable: 1 # 0 stands for Off, 1 stands for On
+
+ExposureAutoMode: 0 # 0 stands for Off, 1 stands for Once, 2 stands for Continues
+ExposureTime: 5000 # us
+
+image_scale: 0.5 # 1 0.5
+GainAuto: 2 # Gain Auto, 0 stands for Off, 1 stands for Once, 2 stands for Continues
+Gain: 15 # min: 0   max: 17.0166
+Gamma: 0.7  # min: 0   max: 17.0166
+GammaSelector: 1 # 0 stands for user, 1 stands for sRGB
+
+PixelFormat: 3 # 0: RGB8, 1: BayerRG8, 2: BayerRG12Packed, 3: BayerGB12Packed, 4: BayerGB8
+```
+
+PixelFormat改为3
