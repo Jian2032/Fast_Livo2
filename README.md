@@ -326,7 +326,7 @@ roslaunch mvs_ros_pkg mvs_camera_trigger.launch
 b.新建终端，打开标定节点：
 
 ```bash
-rosrun camera_calibration cameracalibrator.py --size 17x17 --square 0.2 image/image:=/left_camera/image
+rosrun camera_calibration cameracalibrator.py --size 7x4 --square 0.028 image:=/left_camera/image
 ```
 
 cameracalibrator.py标定程序需要以下几个输入参数。
